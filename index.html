@@ -62,7 +62,7 @@ async function loadFiles(){
 function show(i){
   let s=sections[i],a=files.filter(x=>x.category===s);
   content.innerHTML=`<div class="card" style="grid-column:1/-1"><h3>${s}</h3>${
-    a.length?a.map(x=>`<div class="file"><span>📄 ${esc(x.name)}</span><button class="primary" onclick="openFile(${JSON.stringify(x.storage_path)})">فتح</button></div>`).join("")
+    a.length?a.map(x=>`<div class="file"><span>📄 ${esc(x.name)}</span><button class="primary" onclick='openFile(${JSON.stringify(x.storage_path)})'>فتح</button></div>`).join("")
     :"<p>لا توجد ملفات حاليًا.</p>"
   }</div>`;
 }
@@ -109,7 +109,7 @@ async function adminCall(path,extra={},fileObj=null){
 }
 
 function renderAdmin(){
-  adminFiles.innerHTML=files.map(x=>`<div class="file"><span>${esc(x.name)} — ${esc(x.category)}</span><button onclick="del(${JSON.stringify(x.id)},${JSON.stringify(x.storage_path)})">حذف</button></div>`).join("")||"<p>لا توجد ملفات.</p>";
+  adminFiles.innerHTML=files.map(x=>`<div class="file"><span>${esc(x.name)} — ${esc(x.category)}</span><button onclick='del(${JSON.stringify(x.id)},${JSON.stringify(x.storage_path)})'>حذف</button></div>`).join("")||"<p>لا توجد ملفات.</p>";
   adminStatus.textContent="جاهز.";
 }
 async function saveBg(){
