@@ -1,439 +1,152 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ابتدائية ومتوسطة روض بن هادي</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--main:#0b5f4a;--bg:#eef5f2;--bg-image:none}
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:#17332b;min-height:100vh;background-image:var(--bg-image);background-size:cover;background-position:center;background-attachment:fixed}
+body:after{content:"";position:fixed;inset:0;background:#ffffffc9;z-index:-1}.wrap{max-width:1100px;margin:auto}
+.admin-top{position:fixed;top:14px;left:14px;z-index:20;background:#fff;color:var(--main);border:0;border-radius:10px;padding:10px 14px;font-weight:bold;box-shadow:0 4px 14px #0002;cursor:pointer}
+header{background:linear-gradient(135deg,var(--main),#07382d);color:#fff;padding:25px 18px}.top{display:flex;gap:16px;align-items:center}.logo{width:72px;height:72px;border-radius:16px;background:#ffffff22;display:grid;place-items:center;font-size:32px}.title h1{margin:0 0 7px;font-size:25px}.title p{margin:0}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.navbtn,button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:bold}.navbtn{background:#ffffff18;color:#fff;border:1px solid #ffffff40}
+main{padding:28px 18px}.hero,.card,.panel{background:#fffffff2;border-radius:18px;box-shadow:0 8px 28px #17332b18;padding:20px}.hero{margin-bottom:18px}.hero h2,.card h3,.panel h2{color:var(--main)}
+.primary{background:var(--main);color:#fff}input,select{width:100%;padding:11px;margin:7px 0 12px;border:1px solid #ccd8d3;border-radius:9px}.actions{display:flex;gap:8px;flex-wrap:wrap}.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal.show{display:flex}.panel{width:min(580px,100%);max-height:90vh;overflow:auto}.file{padding:10px 0;border-bottom:1px solid #e3e9e6;display:flex;justify-content:space-between;gap:10px}.small{color:#687873;font-size:13px}.notice{background:#fff5cf;padding:11px;border-radius:10px;line-height:1.7}.status{margin:10px 0;padding:10px;border-radius:9px;background:#eef5f2}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px}footer{text-align:center;padding:28px;color:#60736d}
+</style></head>
+<body>
+<button class="admin-top" onclick="openLogin()">دخول المدير</button>
+<header><div class="wrap"><div class="top"><div class="logo">🏫</div><div class="title"><h1>ابتدائية ومتوسطة روض بن هادي</h1><p>العام الدراسي 1448هـ</p></div></div><nav id="nav"></nav></div></header>
+<main class="wrap"><section class="hero"><h2>بوابة المدرسة الإلكترونية</h2><p>منصة المدرسة لعرض وتنظيم الملفات والأعمال المدرسية.</p></section><section id="content" class="grid"></section></main>
+<footer>مدير المدرسة: عادل محمد الرشيدي — إعداد: المعلم فهد نوران الرشيدي</footer>
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+<div class="modal" id="loginModal"><div class="panel"><h2>دخول المدير</h2><p>أدخل الرمز السري المكون من 4 أرقام.</p><input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"><div id="loginMsg" class="small"></div><div class="actions"><button class="primary" onclick="login()">دخول</button><button onclick="closeM('loginModal')">إلغاء</button></div></div></div>
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const adminPin = Deno.env.get("ADMIN_PIN") || "1234";
+<div class="modal" id="adminModal"><div class="panel"><h2>لوحة المدير</h2>
+<div class="notice">رفع الملفات وتغيير الخلفية يتمان عبر الخادم. الرمز السري لا يُحفظ داخل صفحة الموقع.</div>
+<h3>تخصيص الموقع</h3><input id="bg" type="file" accept="image/*"><div class="actions"><button class="primary" onclick="saveBg()">حفظ الخلفية</button><button onclick="clearBg()">إزالة الخلفية</button></div>
+<h3>إضافة ملف</h3><select id="cat"></select><input id="file" type="file"><div class="actions"><button class="primary" onclick="addFile()">رفع الملف</button><button onclick="logout()">خروج</button></div>
+<div id="adminStatus" class="status"></div><div id="adminFiles"></div></div></div>
 
-const supabase = createClient(
-  supabaseUrl,
-  serviceRoleKey
-);
+<script>
+const SUPABASE_URL="https://tlgqalxoqytnspjldtoj.supabase.co";
+const SUPABASE_KEY="sb_publishable_PiqItLlidisdJSzyUwuOzQ_Jvqt8OKa";
+const API=SUPABASE_URL+"/functions/v1/admin-api";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sections=["الإدارة المدرسية","نافس","التقويم الذاتي","الخطط والبرامج","ملفات المعلمين","الطلاب","التوجيه الطلابي","الأنشطة المدرسية","الملفات الإضافية"];
+let files=[];let adminPin=null;
 
-function responseJson(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
+function esc(s){return String(s).replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]))}
+function renderNav(){
+  nav.innerHTML=sections.map((s,i)=>`<button class="navbtn" onclick="show(${i})">${s}</button>`).join("");
+  cat.innerHTML=sections.map(s=>`<option>${s}</option>`).join("");
+}
+async function loadSettings(){
+  try{
+    const r=await fetch(API+"/background-url");
+    const d=await r.json();
+    if(d.ok&&d.url)setBg(d.url);
+  }catch(e){}
+}
+function setBg(url){
+  document.documentElement.style.setProperty("--bg-image",url?`url(${JSON.stringify(url)})`:"none");
+}
+async function loadFiles(){
+  const {data,error}=await sb.from("school_files")
+    .select("id,name,category,storage_path,file_size,created_at")
+    .order("created_at",{ascending:false});
+  if(!error)files=data||[];
+  show(0);
+}
+function show(i){
+  let s=sections[i],a=files.filter(x=>x.category===s);
+  content.innerHTML=`<div class="card" style="grid-column:1/-1"><h3>${s}</h3>${
+    a.length?a.map(x=>`<div class="file"><span>📄 ${esc(x.name)}</span><button onclick="openFile(${JSON.stringify(x.storage_path)})">فتح</button></div>`).join("")
+    :"<p>لا توجد ملفات حاليًا.</p>"
+  }</div>`;
+}
+function openLogin(){
+  loginMsg.textContent="";pin.value="";loginModal.classList.add("show");pin.focus();
+}
+function closeM(id){document.getElementById(id).classList.remove("show")}
+
+async function login(){
+  const p=document.getElementById("pin").value.trim();
+  const msg=document.getElementById("loginMsg");
+  if(!/^\d{4}$/.test(p)){msg.textContent="أدخل 4 أرقام.";return}
+  msg.textContent="جار التحقق...";
+  try{
+    const res=await fetch(API+"/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+      body:JSON.stringify({pin:p})
+    });
+    const d=await res.json();
+    if(!res.ok||!d.ok){msg.textContent=d.message||"الرمز غير صحيح.";return}
+    adminPin=p;
+    document.getElementById("loginModal").classList.remove("show");
+    document.getElementById("adminModal").classList.add("show");
+    renderAdmin();
+  }catch(e){msg.textContent="تعذر الاتصال بالخادم."}
 }
 
-async function readRequestBody(req: Request) {
-  const contentType =
-    req.headers.get("content-type") || "";
-
-  if (contentType.includes("multipart/form-data")) {
-    return await req.formData();
+async function adminCall(path,extra={},fileObj=null){
+  const opts={method:"POST",headers:{"apikey":SUPABASE_KEY}};
+  if(fileObj){
+    const form=new FormData();
+    form.append("pin",adminPin||"");
+    Object.entries(extra).forEach(([k,v])=>form.append(k,v));
+    form.append("file",fileObj);
+    opts.body=form;
+  }else{
+    opts.headers["Content-Type"]="application/json";
+    opts.body=JSON.stringify({pin:adminPin||"",...extra});
   }
-
-  try {
-    return await req.json();
-  } catch {
-    return {};
-  }
+  const res=await fetch(API+"/"+path,opts);
+  let data={};try{data=await res.json()}catch{}
+  return {ok:res.ok&&data.ok!==false,...data};
 }
 
-function isValidPin(body: any) {
-  const submittedPin =
-    body instanceof FormData
-      ? body.get("pin")
-      : body?.pin;
-
-  return String(submittedPin || "") === adminPin;
+function renderAdmin(){
+  adminFiles.innerHTML=files.map(x=>`<div class="file"><span>${esc(x.name)} — ${esc(x.category)}</span><button onclick="del(${JSON.stringify(x.id)},${JSON.stringify(x.storage_path)})">حذف</button></div>`).join("")||"<p>لا توجد ملفات.</p>";
+  adminStatus.textContent="جاهز.";
 }
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders,
+async function saveBg(){
+  let f=bg.files[0];if(!f)return alert("اختر صورة");
+  adminStatus.textContent="جار حفظ الخلفية...";
+  let r=await adminCall("background",{},f);
+  if(!r.ok){adminStatus.textContent=r.message||"تعذر الحفظ";return}
+  if(r.url)setBg(r.url);
+  bg.value="";adminStatus.textContent="تم حفظ الخلفية ✓";
+}
+async function clearBg(){
+  let r=await adminCall("clear-background");
+  if(!r.ok){alert(r.message||"تعذر الإزالة");return}
+  setBg("");adminStatus.textContent="تمت إزالة الخلفية ✓";
+}
+async function addFile(){
+  let f=file.files[0];if(!f)return alert("اختر ملفًا");
+  adminStatus.textContent="جار رفع الملف...";
+  let r=await adminCall("upload",{category:cat.value},f);
+  if(!r.ok){adminStatus.textContent=r.message||"تعذر الرفع";return}
+  file.value="";await loadFiles();renderAdmin();adminStatus.textContent="تم رفع الملف ✓";
+}
+async function del(id,storage_path){
+  if(!confirm("حذف الملف؟"))return;
+  let r=await adminCall("delete",{id,storage_path});
+  if(!r.ok){alert(r.message||"تعذر الحذف");return}
+  await loadFiles();renderAdmin();
+}
+async function openFile(path){
+  try{
+    const res=await fetch(API+"/download?path="+encodeURIComponent(path),{
+      headers:{"apikey":SUPABASE_KEY}
     });
-  }
-
-  const url = new URL(req.url);
-  const parts = url.pathname
-    .split("/")
-    .filter(Boolean);
-
-  const action =
-    parts[parts.length - 1] || "";
-
-  // ==========================
-  // تسجيل الدخول
-  // ==========================
-  if (action === "login") {
-    const loginBody =
-      await readRequestBody(req);
-
-    if (!isValidPin(loginBody)) {
-      return responseJson(
-        {
-          ok: false,
-          message: "رمز الدخول غير صحيح",
-        },
-        401
-      );
-    }
-
-    return responseJson({
-      ok: true,
-      message: "تم تسجيل الدخول",
-    });
-  }
-
-  // ==========================
-  // الخلفية للزوار
-  // ==========================
-  if (action === "background-url") {
-    const { data, error } =
-      await supabase.storage
-        .from("school-files")
-        .createSignedUrl(
-          "site/background",
-          86400
-        );
-
-    if (error || !data?.signedUrl) {
-      return responseJson({
-        ok: false,
-        url: null,
-      });
-    }
-
-    return responseJson({
-      ok: true,
-      url: data.signedUrl,
-    });
-  }
-
-  // ==========================
-  // فتح ملف للزوار
-  // ==========================
-  if (action === "download") {
-    const requestedPath =
-      url.searchParams.get("path");
-
-    if (!requestedPath) {
-      return responseJson(
-        {
-          ok: false,
-          message: "مسار الملف غير موجود",
-        },
-        400
-      );
-    }
-
-    const { data, error } =
-      await supabase.storage
-        .from("school-files")
-        .createSignedUrl(
-          requestedPath,
-          3600
-        );
-
-    if (error || !data?.signedUrl) {
-      return responseJson(
-        {
-          ok: false,
-          message: "تعذر إنشاء رابط الملف",
-        },
-        404
-      );
-    }
-
-    return responseJson({
-      ok: true,
-      url: data.signedUrl,
-    });
-  }
-
-  // ==========================
-  // التحقق من المدير
-  // ==========================
-  const adminBody =
-    await readRequestBody(req);
-
-  if (!isValidPin(adminBody)) {
-    return responseJson(
-      {
-        ok: false,
-        message: "غير مصرح",
-      },
-      401
-    );
-  }
-
-  // ==========================
-  // رفع ملف
-  // ==========================
-  if (action === "upload") {
-    const uploadedFile =
-      adminBody.get("file");
-
-    const category =
-      String(
-        adminBody.get("category") ||
-          "الملفات الإضافية"
-      );
-
-    if (!(uploadedFile instanceof File)) {
-      return responseJson(
-        {
-          ok: false,
-          message: "لم يتم اختيار ملف",
-        },
-        400
-      );
-    }
-
-    const safeFileName =
-      uploadedFile.name.replace(
-        /[^a-zA-Z0-9._-]/g,
-        "_"
-      );
-
-    const categoryFolders: Record<
-      string,
-      string
-    > = {
-      "الإدارة المدرسية": "section-1",
-      "نافس": "section-2",
-      "التقويم الذاتي": "section-3",
-      "الخطط والبرامج": "section-4",
-      "ملفات المعلمين": "section-5",
-      "الطلاب": "section-6",
-      "التوجيه الطلابي": "section-7",
-      "الأنشطة المدرسية": "section-8",
-      "الملفات الإضافية": "section-9",
-    };
-
-    const storageFolder =
-      categoryFolders[category] ||
-      "section-9";
-
-    const newStoragePath =
-      `${storageFolder}/${Date.now()}_${safeFileName}`;
-
-    const { error: uploadError } =
-      await supabase.storage
-        .from("school-files")
-        .upload(
-          newStoragePath,
-          uploadedFile,
-          {
-            contentType:
-              uploadedFile.type ||
-              "application/octet-stream",
-            upsert: false,
-          }
-        );
-
-    if (uploadError) {
-      return responseJson(
-        {
-          ok: false,
-          message: uploadError.message,
-        },
-        500
-      );
-    }
-
-    const { data: insertedFile, error: insertError } =
-      await supabase
-        .from("school_files")
-        .insert({
-          name: uploadedFile.name,
-          category: category,
-          storage_path: newStoragePath,
-          file_size: uploadedFile.size,
-        })
-        .select()
-        .single();
-
-    if (insertError) {
-      await supabase.storage
-        .from("school-files")
-        .remove([
-          newStoragePath,
-        ]);
-
-      return responseJson(
-        {
-          ok: false,
-          message: insertError.message,
-        },
-        500
-      );
-    }
-
-    return responseJson({
-      ok: true,
-      file: insertedFile,
-    });
-  }
-
-  // ==========================
-  // حذف ملف
-  // ==========================
-  if (action === "delete") {
-    const fileId =
-      adminBody.id;
-
-    const fileStoragePath =
-      adminBody.storage_path;
-
-    if (!fileId || !fileStoragePath) {
-      return responseJson(
-        {
-          ok: false,
-          message: "بيانات الملف ناقصة",
-        },
-        400
-      );
-    }
-
-    const { error: removeError } =
-      await supabase.storage
-        .from("school-files")
-        .remove([
-          fileStoragePath,
-        ]);
-
-    if (removeError) {
-      return responseJson(
-        {
-          ok: false,
-          message: removeError.message,
-        },
-        500
-      );
-    }
-
-    const { error: deleteError } =
-      await supabase
-        .from("school_files")
-        .delete()
-        .eq("id", fileId);
-
-    if (deleteError) {
-      return responseJson(
-        {
-          ok: false,
-          message: deleteError.message,
-        },
-        500
-      );
-    }
-
-    return responseJson({
-      ok: true,
-      message: "تم حذف الملف",
-    });
-  }
-
-  // ==========================
-  // تغيير الخلفية
-  // ==========================
-  if (action === "background") {
-    const backgroundFile =
-      adminBody.get("file");
-
-    if (!(backgroundFile instanceof File)) {
-      return responseJson(
-        {
-          ok: false,
-          message: "لم يتم اختيار صورة",
-        },
-        400
-      );
-    }
-
-    await supabase.storage
-      .from("school-files")
-      .remove([
-        "site/background",
-      ]);
-
-    const { error: backgroundError } =
-      await supabase.storage
-        .from("school-files")
-        .upload(
-          "site/background",
-          backgroundFile,
-          {
-            contentType:
-              backgroundFile.type ||
-              "image/jpeg",
-            upsert: true,
-          }
-        );
-
-    if (backgroundError) {
-      return responseJson(
-        {
-          ok: false,
-          message: backgroundError.message,
-        },
-        500
-      );
-    }
-
-    const { data: backgroundUrl } =
-      await supabase.storage
-        .from("school-files")
-        .createSignedUrl(
-          "site/background",
-          86400
-        );
-
-    return responseJson({
-      ok: true,
-      url:
-        backgroundUrl?.signedUrl ||
-        null,
-      message: "تم تغيير الخلفية",
-    });
-  }
-
-  // ==========================
-  // إزالة الخلفية
-  // ==========================
-  if (action === "clear-background") {
-    const { error: clearError } =
-      await supabase.storage
-        .from("school-files")
-        .remove([
-          "site/background",
-        ]);
-
-    if (clearError) {
-      return responseJson(
-        {
-          ok: false,
-          message: clearError.message,
-        },
-        500
-      );
-    }
-
-    return responseJson({
-      ok: true,
-      message: "تمت إزالة الخلفية",
-    });
-  }
-
-  return responseJson(
-    {
-      ok: false,
-      message: "الأمر غير معروف",
-    },
-    404
-  );
-});
+    const d=await res.json();
+    if(d.ok&&d.url){window.open(d.url,"_blank");return}
+  }catch(e){}
+  alert("تعذر فتح الملف.");
+}
+function logout(){adminPin=null;closeM("adminModal")}
+renderNav();loadSettings();loadFiles();
+</script></body></html>
