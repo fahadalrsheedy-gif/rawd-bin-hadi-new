@@ -13,6 +13,7 @@ header{background:linear-gradient(135deg,var(--main),#07382d);color:#fff;padding
 nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.navbtn,button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:bold}.navbtn{background:#ffffff18;color:#fff;border:1px solid #ffffff40}
 main{padding:28px 18px}.hero,.card,.panel{background:#fffffff2;border-radius:18px;box-shadow:0 8px 28px #17332b18;padding:20px}.hero{margin-bottom:18px}.hero h2,.card h3,.panel h2{color:var(--main)}
 .primary{background:var(--main);color:#fff}input,select{width:100%;padding:11px;margin:7px 0 12px;border:1px solid #ccd8d3;border-radius:9px}.actions{display:flex;gap:8px;flex-wrap:wrap}.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal.show{display:flex}.panel{width:min(580px,100%);max-height:90vh;overflow:auto}.file{padding:10px 0;border-bottom:1px solid #e3e9e6;display:flex;justify-content:space-between;gap:10px}.small{color:#687873;font-size:13px}.notice{background:#fff5cf;padding:11px;border-radius:10px;line-height:1.7}.status{margin:10px 0;padding:10px;border-radius:9px;background:#eef5f2}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px}footer{text-align:center;padding:28px;color:#60736d}
+.file button{white-space:nowrap}
 </style></head>
 <body>
 <button class="admin-top" onclick="openLogin()">دخول المدير</button>
@@ -43,7 +44,7 @@ function renderNav(){
 }
 async function loadSettings(){
   try{
-    const r=await fetch(API+"/background-url");
+    const r=await fetch(API+"/background-url",{headers:{"apikey":SUPABASE_KEY}});
     const d=await r.json();
     if(d.ok&&d.url)setBg(d.url);
   }catch(e){}
@@ -61,7 +62,7 @@ async function loadFiles(){
 function show(i){
   let s=sections[i],a=files.filter(x=>x.category===s);
   content.innerHTML=`<div class="card" style="grid-column:1/-1"><h3>${s}</h3>${
-    a.length?a.map(x=>`<div class="file"><span>📄 ${esc(x.name)}</span><button onclick="openFile(${JSON.stringify(x.storage_path)})">فتح</button></div>`).join("")
+    a.length?a.map(x=>`<div class="file"><span>📄 ${esc(x.name)}</span><button class="primary" onclick="openFile(${JSON.stringify(x.storage_path)})">فتح</button></div>`).join("")
     :"<p>لا توجد ملفات حاليًا.</p>"
   }</div>`;
 }
@@ -132,20 +133,39 @@ async function addFile(){
   file.value="";await loadFiles();renderAdmin();adminStatus.textContent="تم رفع الملف ✓";
 }
 async function del(id,storage_path){
+  if(!adminPin)return alert("سجّل دخول المدير أولاً.");
   if(!confirm("حذف الملف؟"))return;
-  let r=await adminCall("delete",{id,storage_path});
-  if(!r.ok){alert(r.message||"تعذر الحذف");return}
-  await loadFiles();renderAdmin();
+  adminStatus.textContent="جار حذف الملف...";
+  try{
+    let r=await adminCall("delete",{id:id,storage_path:storage_path});
+    if(!r.ok){
+      adminStatus.textContent=r.message||"تعذر الحذف";
+      return;
+    }
+    await loadFiles();
+    renderAdmin();
+    adminStatus.textContent="تم حذف الملف ✓";
+  }catch(e){
+    adminStatus.textContent="تعذر الاتصال بالخادم.";
+  }
 }
 async function openFile(path){
+  if(!path)return alert("مسار الملف غير موجود.");
   try{
     const res=await fetch(API+"/download?path="+encodeURIComponent(path),{
       headers:{"apikey":SUPABASE_KEY}
     });
-    const d=await res.json();
-    if(d.ok&&d.url){window.open(d.url,"_blank");return}
-  }catch(e){}
-  alert("تعذر فتح الملف.");
+    let d={};
+    try{d=await res.json()}catch{}
+    if(res.ok&&d.ok&&d.url){
+      // الانتقال مباشرة يمنع حظر النوافذ المنبثقة بعد await
+      window.location.href=d.url;
+      return;
+    }
+    alert(d.message||"تعذر إنشاء رابط فتح الملف.");
+  }catch(e){
+    alert("تعذر الاتصال بالخادم.");
+  }
 }
 function logout(){adminPin=null;closeM("adminModal")}
 renderNav();loadSettings();loadFiles();
